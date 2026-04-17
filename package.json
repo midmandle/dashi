@@ -1,0 +1,8 @@
+{
+  "name": "dashi",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "ingestion-api"
+  ]
+}
