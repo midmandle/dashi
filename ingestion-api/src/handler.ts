@@ -1,33 +1,31 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { EventSchema, DynamoDBKey } from '@dashi/schema';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { EventSchema } from '@dashi/schema';
+import { EventRepository } from './event-repository';
+import { DynamoDbEventRepository } from './dynamo-db-event-repository';
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+export class Handler {
+  constructor(private readonly repository: EventRepository) {}
 
-  if (!event.body) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Request body is required' }) };
+  async handle(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+    if (!event.body) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Request body is required' }) };
+    }
+
+    const result = EventSchema.safeParse(JSON.parse(event.body));
+    if (!result.success) {
+      const error = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      return { statusCode: 400, body: JSON.stringify({ error }) };
+    }
+
+    await this.repository.save(result.data);
+
+    return { statusCode: 201, body: '' };
   }
+}
 
-  const result = EventSchema.safeParse(JSON.parse(event.body));
-  if (!result.success) {
-    const error = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-    return { statusCode: 400, body: JSON.stringify({ error }) };
-  }
+const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const instance = new Handler(new DynamoDbEventRepository(client, process.env.DYNAMODB_TABLE_NAME!));
 
-  const item = result.data;
-
-  await dynamo.send(
-    new PutCommand({
-      TableName: process.env.DYNAMODB_TABLE_NAME!,
-      Item: {
-        ...item,
-        pk: DynamoDBKey.pk(item.workflowId),
-        sk: DynamoDBKey.sk(item.timestamp, item.eventId),
-      },
-    })
-  );
-
-  return { statusCode: 201, body: '' };
-};
+export const handler: APIGatewayProxyHandler = (event) => instance.handle(event);

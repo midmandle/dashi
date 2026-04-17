@@ -24,8 +24,3 @@ export const EventSchema = z.object({
 });
 
 export type Event = z.infer<typeof EventSchema>;
-
-export const DynamoDBKey = {
-  pk: (workflowId: string) => workflowId,
-  sk: (timestamp: string, eventId: string) => `${timestamp}#${eventId}`,
-};
