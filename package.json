@@ -5,5 +5,14 @@
     "packages/*",
     "ingestion-api",
     "mcp-server"
-  ]
+  ],
+  "scripts": {
+    "up":        "docker compose up --build",
+    "up:detach": "docker compose up --build -d",
+    "down":      "docker compose down",
+    "logs":      "docker compose logs -f",
+    "logs:api":  "docker compose logs -f ingestion-api",
+    "build":     "npm run build --workspaces --if-present",
+    "test":      "npm test --workspaces --if-present"
+  }
 }

@@ -1,0 +1,137 @@
+networks:
+  dashi-local:
+    driver: bridge
+
+services:
+
+  # ─── Infrastructure ──────────────────────────────────────────────────────────
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    networks: [dashi-local]
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/shell/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    networks: [dashi-local]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    networks: [dashi-local]
+    ports:
+      - "9324:9324"   # SQS API
+      - "9325:9325"   # Management UI
+    volumes:
+      - ./docker/elasticmq.conf:/opt/elasticmq.conf
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9324/?Action=ListQueues || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ─── Application Services ─────────────────────────────────────────────────────
+
+  ingestion-api:
+    build:
+      context: .
+      dockerfile: ingestion-api/Dockerfile
+    networks: [dashi-local]
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DYNAMODB_TABLE_NAME: dashi-events-local
+      AWS_ENDPOINT_URL: http://dynamodb-local:8000
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_REGION: us-east-1
+      SQS_QUEUE_URL: http://elasticmq:9324/000000000000/dashi-events-local
+    volumes:
+      - ./ingestion-api/src:/app/ingestion-api/src
+      - ./packages/schema/src:/app/packages/schema/src
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+      elasticmq:
+        condition: service_healthy
+
+  # TODO: uncomment when event-processor is implemented (ticket 3.1)
+  # event-processor:
+  #   build:
+  #     context: .
+  #     dockerfile: event-processor/Dockerfile
+  #   networks: [dashi-local]
+  #   env_file: .env
+  #   environment:
+  #     DYNAMODB_TABLE_NAME: dashi-events-local
+  #     AWS_ENDPOINT_URL: http://dynamodb-local:8000
+  #     AWS_ACCESS_KEY_ID: local
+  #     AWS_SECRET_ACCESS_KEY: local
+  #     AWS_REGION: us-east-1
+  #     SQS_QUEUE_URL: http://elasticmq:9324/000000000000/dashi-events-local
+  #   volumes:
+  #     - ./event-processor/src:/app/event-processor/src
+  #     - ./packages/schema/src:/app/packages/schema/src
+  #   depends_on:
+  #     dynamodb-local:
+  #       condition: service_healthy
+  #     elasticmq:
+  #       condition: service_healthy
+
+  # TODO: uncomment when stream-processor is implemented (ticket 2.2)
+  # stream-processor:
+  #   build:
+  #     context: .
+  #     dockerfile: stream-processor/Dockerfile
+  #   networks: [dashi-local]
+  #   env_file: .env
+  #   environment:
+  #     REDIS_URL: redis://redis:6379
+  #     AWS_ENDPOINT_URL: http://dynamodb-local:8000
+  #     AWS_ACCESS_KEY_ID: local
+  #     AWS_SECRET_ACCESS_KEY: local
+  #     AWS_REGION: us-east-1
+  #   volumes:
+  #     - ./stream-processor/src:/app/stream-processor/src
+  #     - ./packages/schema/src:/app/packages/schema/src
+  #   depends_on:
+  #     dynamodb-local:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+  # TODO: uncomment when api-server is implemented (ticket 2.3)
+  # api-server:
+  #   build:
+  #     context: .
+  #     dockerfile: api-server/Dockerfile
+  #   networks: [dashi-local]
+  #   ports:
+  #     - "3001:3001"
+  #   env_file: .env
+  #   environment:
+  #     PORT: 3001
+  #     REDIS_URL: redis://redis:6379
+  #   volumes:
+  #     - ./api-server/src:/app/api-server/src
+  #     - ./packages/schema/src:/app/packages/schema/src
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
