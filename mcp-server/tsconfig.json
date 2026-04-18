@@ -8,9 +8,14 @@
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
-    "composite": true
+    "skipLibCheck": true,
+    "paths": {
+      "@dashi/schema": ["../packages/schema/src"]
+    }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../packages/schema" }
+  ]
 }
