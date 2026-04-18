@@ -1,0 +1,10 @@
+/** @type {import('jest').Config} */
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  testMatch: ['**/tests/**/*.test.ts'],
+  moduleNameMapper: {
+    '^@dashi/schema$': '<rootDir>/../packages/schema/src/index.ts',
+    '^(@modelcontextprotocol/sdk/.*)\.js$': '$1',
+  },
+};

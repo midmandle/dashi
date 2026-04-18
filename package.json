@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "ingestion-api"
+    "ingestion-api",
+    "mcp-server"
   ]
 }

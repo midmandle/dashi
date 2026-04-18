@@ -16,6 +16,8 @@ Acceptance tests are written at the system component level and exercise the comp
 Anything on the component's boundary (downstream AWS services, external HTTP servers) is replaced with a mock or fake. The test stays entirely within the component's scope.
 
 - One acceptance test per scenario from the ticket's acceptance criteria.
+- One file per acceptance test — no grouping multiple scenarios into a single file.
+- Use a bare `test()` block — no wrapping `describe` block.
 
 ## TDD inner loop (unit tests)
 
